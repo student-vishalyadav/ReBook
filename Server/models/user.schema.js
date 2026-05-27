@@ -22,6 +22,20 @@ const userSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  cart: [
+    {
+      book: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Book",
+        required: true,
+      },
+      quantity: {
+        type: Number,
+        default: 1,
+        min: 1,
+      },
+    },
+  ],
 });
 
 module.exports = mongoose.model("User", userSchema);

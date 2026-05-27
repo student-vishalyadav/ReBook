@@ -1,4 +1,5 @@
 const userModel = require("../models/user.schema");
+const Book = require("../models/Book.schema");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const JWT_SECRET = process.env.JWT_SECRET || "himeradilhimeradil";
@@ -84,6 +85,115 @@ const login = async (req, res) => {
   }
 };
 
+const getCart = async (req, res) => {
+  try {
+    const user = await userModel
+      .findById(req.user.id)
+      .populate("cart.book", "title sellingPrice condition images seller isSold")
+      .populate("cart.book.seller", "username email");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const cartItems = (user.cart || []).filter((item) => item.book);
+
+    return res.status(200).json({
+      message: "Cart fetched successfully",
+      cartItems,
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send("Internal Server Error");
+  }
+};
+
+const addToCart = async (req, res) => {
+  try {
+    const { bookId, quantity = 1 } = req.body;
+
+    if (!bookId) {
+      return res.status(400).json({ message: "bookId is required" });
+    }
+
+    const book = await Book.findById(bookId);
+    if (!book) {
+      return res.status(404).json({ message: "Book not found" });
+    }
+
+    const user = await userModel.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    user.cart = user.cart || [];
+
+    const existingItem = user.cart.find(
+      (item) => item.book.toString() === bookId
+    );
+
+    if (existingItem) {
+      existingItem.quantity += Math.max(1, Number(quantity));
+    } else {
+      user.cart.push({ book: bookId, quantity: Math.max(1, Number(quantity)) });
+    }
+
+    await user.save();
+
+    return res.status(200).json({ message: "Book added to cart" });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send("Internal Server Error");
+  }
+};
+
+const updateCartItem = async (req, res) => {
+  try {
+    const { bookId, quantity } = req.body;
+
+    if (!bookId || Number(quantity) < 1) {
+      return res.status(400).json({ message: "Valid bookId and quantity are required" });
+    }
+
+    const user = await userModel.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    user.cart = user.cart || [];
+
+    const item = user.cart.find((cartItem) => cartItem.book.toString() === bookId);
+    if (!item) {
+      return res.status(404).json({ message: "Cart item not found" });
+    }
+
+    item.quantity = Number(quantity);
+    await user.save();
+
+    return res.status(200).json({ message: "Cart updated successfully" });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send("Internal Server Error");
+  }
+};
+
+const removeCartItem = async (req, res) => {
+  try {
+    const { bookId } = req.params;
+
+    const user = await userModel.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    user.cart = user.cart || [];
+
+    user.cart = user.cart.filter((item) => item.book.toString() !== bookId);
+    await user.save();
+
+    return res.status(200).json({ message: "Item removed from cart" });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send("Internal Server Error");
+  }
+};
 
 
-module.exports = { signup , login };
+module.exports = { signup , login, getCart, addToCart, updateCartItem, removeCartItem };
