@@ -33,6 +33,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(port, () => {
-  console.log("Your server is listen on this Port : " + port);
-});
+if (process.env.VERCEL !== "1") {
+  app.listen(port, () => {
+    console.log("Your server is listen on this Port : " + port);
+  });
+}
+
+module.exports = app;
